@@ -143,14 +143,38 @@ CREATE POLICY "media public delete" ON public.media FOR DELETE USING (true);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.media;
 
 ------------------------------------------------------------
--- 5. Storage bucket(階段 4-5 才會用到,可以先建)
+-- 5. Storage bucket
 ------------------------------------------------------------
 -- 在 Supabase Dashboard → Storage 手動建 bucket:
 --   名稱: sports-media
 --   Public: ON(配合無登入 + public RLS)
 --   File size limit: 50 MB(影片壓縮後夠用)
---   Allowed MIME types: image/jpeg, image/png, image/webp, video/mp4, video/quicktime
+--   Allowed MIME types: image/jpeg, image/png, image/webp, video/mp4, video/quicktime, video/webm
 -- 路徑慣例:
 --   sports-media/{member_id}/photo/{uuid}.jpg
 --   sports-media/{member_id}/video/{uuid}.mp4
 --   sports-media/{member_id}/thumb/{uuid}.jpg
+
+------------------------------------------------------------
+-- 6. Storage RLS policies(配合 public bucket,允許 anon 寫入/刪除)
+------------------------------------------------------------
+DROP POLICY IF EXISTS "sports-media public read"   ON storage.objects;
+DROP POLICY IF EXISTS "sports-media public insert" ON storage.objects;
+DROP POLICY IF EXISTS "sports-media public update" ON storage.objects;
+DROP POLICY IF EXISTS "sports-media public delete" ON storage.objects;
+
+CREATE POLICY "sports-media public read"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'sports-media');
+
+CREATE POLICY "sports-media public insert"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'sports-media');
+
+CREATE POLICY "sports-media public update"
+  ON storage.objects FOR UPDATE
+  USING (bucket_id = 'sports-media');
+
+CREATE POLICY "sports-media public delete"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'sports-media');
