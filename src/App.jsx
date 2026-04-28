@@ -186,6 +186,7 @@ export default function App() {
       <MemberEditModal
         open={showEdit}
         members={state.members}
+        media={state.media}
         onClose={() => setShowEdit(false)}
         onSave={updateMember}
       />

@@ -1,7 +1,115 @@
 import { useEffect, useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, X, Cloud, Loader2 } from 'lucide-react'
+import { findStorageOrphans, removeFromStorageBatch } from '../utils/mediaUpload.js'
 
-export default function MemberEditModal({ open, members, onClose, onSave }) {
+const fmtBytes = (n) => {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+const CleanupSection = ({ media }) => {
+  const [scanning, setScanning] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+  const [result, setResult] = useState(null) // { orphans, totalOrphanBytes, totalAllFiles }
+  const [error, setError] = useState('')
+  const [done, setDone] = useState('')
+
+  const scan = async () => {
+    setScanning(true)
+    setError('')
+    setDone('')
+    try {
+      const r = await findStorageOrphans(media)
+      setResult(r)
+    } catch (err) {
+      setError(err.message || '掃描失敗')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const clean = async () => {
+    if (!result || !result.orphans.length) return
+    if (!window.confirm(`要刪除 ${result.orphans.length} 個孤兒檔案(${fmtBytes(result.totalOrphanBytes)})嗎?此動作無法復原。`)) {
+      return
+    }
+    setCleaning(true)
+    setError('')
+    try {
+      const paths = result.orphans.map((o) => o.path)
+      await removeFromStorageBatch(paths)
+      setDone(`已清理 ${result.orphans.length} 個檔案,釋出 ${fmtBytes(result.totalOrphanBytes)}`)
+      setResult({ orphans: [], totalOrphanBytes: 0, totalAllFiles: result.totalAllFiles - result.orphans.length })
+    } catch (err) {
+      setError(err.message || '清理失敗')
+    } finally {
+      setCleaning(false)
+    }
+  }
+
+  return (
+    <div className="glass rounded-ios p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Cloud className="w-4 h-4 text-coralDark" />
+        <span className="text-sm font-semibold">雲端清理</span>
+      </div>
+      <p className="text-xs text-mute leading-relaxed">
+        掃描 Supabase Storage,找出沒有對應紀錄的孤兒檔案(離線時刪除失敗、或表單取消後上傳的殘留)並刪除。已連結到比賽/練習的照片影片不會動到。
+      </p>
+
+      {!result && (
+        <button
+          type="button"
+          onClick={scan}
+          disabled={scanning}
+          className="ios-btn-ghost w-full flex items-center justify-center gap-2"
+        >
+          {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
+          {scanning ? '掃描中…' : '開始掃描'}
+        </button>
+      )}
+
+      {result && (
+        <div className="space-y-2">
+          <div className="text-sm">
+            掃了 <span className="font-bold tabular-nums">{result.totalAllFiles}</span> 個檔案,
+            找到 <span className="font-bold tabular-nums text-coralDark">{result.orphans.length}</span> 個孤兒
+            {result.orphans.length > 0 && (
+              <span className="text-mute"> · 共 {fmtBytes(result.totalOrphanBytes)}</span>
+            )}
+          </div>
+          {result.orphans.length > 0 ? (
+            <button
+              type="button"
+              onClick={clean}
+              disabled={cleaning}
+              className="ios-btn-primary w-full flex items-center justify-center gap-2"
+            >
+              {cleaning ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {cleaning ? '清理中…' : `清理 ${result.orphans.length} 個檔案`}
+            </button>
+          ) : (
+            <p className="text-xs text-mute text-center">沒有需要清理的檔案 ✓</p>
+          )}
+          <button
+            type="button"
+            onClick={scan}
+            disabled={scanning || cleaning}
+            className="text-xs text-mute hover:text-coral block mx-auto mt-1"
+          >
+            重新掃描
+          </button>
+        </div>
+      )}
+
+      {done && <p className="text-xs text-coralDark text-center">{done}</p>}
+      {error && <p className="text-xs text-coralDark text-center">{error}</p>}
+    </div>
+  )
+}
+
+export default function MemberEditModal({ open, members, media, onClose, onSave }) {
   const [drafts, setDrafts] = useState(members)
 
   useEffect(() => {
@@ -29,7 +137,7 @@ export default function MemberEditModal({ open, members, onClose, onSave }) {
           <button onClick={onClose} className="p-2 -m-2 text-mute hover:text-ink transition" aria-label="關閉">
             <X className="w-6 h-6" />
           </button>
-          <h2 className="text-lg font-semibold">編輯成員</h2>
+          <h2 className="text-lg font-semibold">編輯與設定</h2>
           <button onClick={submit} className="p-2 -m-2 text-coral font-semibold" aria-label="儲存">
             <Check className="w-6 h-6" />
           </button>
@@ -70,6 +178,8 @@ export default function MemberEditModal({ open, members, onClose, onSave }) {
               </div>
             )
           })}
+
+          <CleanupSection media={media || []} />
         </div>
       </div>
     </div>

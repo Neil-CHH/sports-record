@@ -211,6 +211,9 @@ export const useAppState = () => {
       const { error } = await supabase.from('matches').update(dbPatch).eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'delete_match') {
+      if (op.paths?.length) {
+        try { await removeFromStorageBatch(op.paths) } catch (e) { console.warn('[sync] storage cleanup failed (continuing)', e) }
+      }
       const { error } = await supabase.from('matches').delete().eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'insert_session') {
@@ -222,6 +225,9 @@ export const useAppState = () => {
       const { error } = await supabase.from('training_sessions').update(dbPatch).eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'delete_session') {
+      if (op.paths?.length) {
+        try { await removeFromStorageBatch(op.paths) } catch (e) { console.warn('[sync] storage cleanup failed (continuing)', e) }
+      }
       const { error } = await supabase.from('training_sessions').delete().eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'insert_items') {
@@ -476,7 +482,7 @@ export const useAppState = () => {
       if (error) throw error
     } catch (err) {
       console.error('[sync] delete_match failed', err)
-      enqueue({ type: 'delete_match', id })
+      enqueue({ type: 'delete_match', id, paths })
     }
   }, [enqueue])
 
@@ -561,7 +567,7 @@ export const useAppState = () => {
       if (error) throw error
     } catch (err) {
       console.error('[sync] delete_session failed', err)
-      enqueue({ type: 'delete_session', id })
+      enqueue({ type: 'delete_session', id, paths })
     }
   }, [enqueue])
 

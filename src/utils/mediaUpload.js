@@ -294,6 +294,48 @@ export const removeFromStorageBatch = async (paths) => {
   await supabase.storage.from(BUCKET).remove(list)
 }
 
+const listAllStorageRecursive = async (prefix = '') => {
+  const all = []
+  let offset = 0
+  const PAGE = 100
+  while (true) {
+    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, {
+      limit: PAGE,
+      offset,
+      sortBy: { column: 'name', order: 'asc' }
+    })
+    if (error) throw error
+    if (!data || !data.length) break
+    for (const item of data) {
+      if (item.name === '.emptyFolderPlaceholder') continue
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name
+      const isFile = item.id != null && item.metadata != null
+      if (isFile) {
+        all.push({ path: fullPath, size: item.metadata?.size || 0 })
+      } else {
+        const sub = await listAllStorageRecursive(fullPath)
+        all.push(...sub)
+      }
+    }
+    if (data.length < PAGE) break
+    offset += PAGE
+  }
+  return all
+}
+
+// Returns { orphans: [{path, size}], totalOrphanBytes, totalAllFiles }
+export const findStorageOrphans = async (mediaRows) => {
+  const known = new Set()
+  for (const m of mediaRows || []) {
+    if (m.storagePath) known.add(m.storagePath)
+    if (m.thumbnailPath) known.add(m.thumbnailPath)
+  }
+  const all = await listAllStorageRecursive('')
+  const orphans = all.filter((f) => !known.has(f.path) && !f.path.startsWith('_probe/'))
+  const totalOrphanBytes = orphans.reduce((a, f) => a + (f.size || 0), 0)
+  return { orphans, totalOrphanBytes, totalAllFiles: all.length }
+}
+
 export const getPublicUrl = (path) => {
   if (!path) return null
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
