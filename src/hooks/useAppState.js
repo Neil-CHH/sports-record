@@ -172,6 +172,8 @@ export const useAppState = () => {
   )
   const [queue, setQueueState] = useState(() => loadQueue())
   const drainingRef = useRef(false)
+  const drainQueueRef = useRef(null)
+  const retryTimerRef = useRef(null)
 
   useEffect(() => { saveCachedMembers(members) }, [members])
   useEffect(() => { saveCachedMatches(matches) }, [matches])
@@ -179,13 +181,22 @@ export const useAppState = () => {
   useEffect(() => { saveCachedTrainingItems(trainingItems) }, [trainingItems])
   useEffect(() => { saveCachedMedia(media) }, [media])
 
+  const scheduleRetry = useCallback((delayMs = 2000) => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null
+      drainQueueRef.current?.()
+    }, delayMs)
+  }, [])
+
   const enqueue = useCallback((op) => {
     setQueueState((prev) => {
       const next = [...prev, op]
       saveQueue(next)
       return next
     })
-  }, [])
+    scheduleRetry(2000)
+  }, [scheduleRetry])
 
   const execOp = useCallback(async (op) => {
     if (op.type === 'update_member') {
@@ -239,6 +250,7 @@ export const useAppState = () => {
   const drainQueue = useCallback(async () => {
     if (drainingRef.current) return
     drainingRef.current = true
+    let stuck = false
     try {
       let q = loadQueue()
       while (q.length) {
@@ -247,14 +259,27 @@ export const useAppState = () => {
           q = q.slice(1)
           saveQueue(q)
           setQueueState(q)
-        } catch {
+        } catch (err) {
+          console.error('[sync] drain stuck on op', q[0], err)
+          stuck = true
           break
         }
       }
     } finally {
       drainingRef.current = false
     }
-  }, [execOp])
+    if (stuck) scheduleRetry(15000)
+  }, [execOp, scheduleRetry])
+
+  useEffect(() => {
+    drainQueueRef.current = drainQueue
+  }, [drainQueue])
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    }
+  }, [])
 
   const fetchFromServer = useCallback(async () => {
     try {
@@ -397,7 +422,8 @@ export const useAppState = () => {
     try {
       const { error } = await supabase.from('members').update(memberDbPatch(patch)).eq('id', id)
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] update_member failed', err)
       enqueue({ type: 'update_member', id, patch })
     }
   }, [enqueue])
@@ -408,7 +434,8 @@ export const useAppState = () => {
     try {
       const { error } = await supabase.from('matches').insert(toDbMatch(newRec))
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] insert_match failed', err)
       enqueue({ type: 'insert_match', payload: newRec })
     }
     return newRec
@@ -426,7 +453,8 @@ export const useAppState = () => {
       delete dbPatch.id
       const { error } = await supabase.from('matches').update(dbPatch).eq('id', id)
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] update_match failed', err)
       enqueue({ type: 'update_match', id, payload: merged || { id, ...patch } })
     }
   }, [enqueue])
@@ -446,7 +474,8 @@ export const useAppState = () => {
       if (paths.length) await removeFromStorageBatch(paths)
       const { error } = await supabase.from('matches').delete().eq('id', id)
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] delete_match failed', err)
       enqueue({ type: 'delete_match', id })
     }
   }, [enqueue])
@@ -469,7 +498,8 @@ export const useAppState = () => {
         const { error: e2 } = await supabase.from('training_items').insert(newItems.map(toDbItem))
         if (e2) throw e2
       }
-    } catch {
+    } catch (err) {
+      console.error('[sync] insert_session failed', err)
       enqueue({ type: 'insert_session', payload: newSession })
       if (newItems.length) enqueue({ type: 'insert_items', payload: newItems })
     }
@@ -504,7 +534,8 @@ export const useAppState = () => {
         const { error: e3 } = await supabase.from('training_items').insert(newItems.map(toDbItem))
         if (e3) throw e3
       }
-    } catch {
+    } catch (err) {
+      console.error('[sync] update_session failed', err)
       enqueue({ type: 'update_session', id, payload: merged || { id, ...patch } })
       enqueue({ type: 'replace_items', sessionId: id, payload: newItems })
     }
@@ -528,7 +559,8 @@ export const useAppState = () => {
       if (paths.length) await removeFromStorageBatch(paths)
       const { error } = await supabase.from('training_sessions').delete().eq('id', id)
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] delete_session failed', err)
       enqueue({ type: 'delete_session', id })
     }
   }, [enqueue])
@@ -539,7 +571,8 @@ export const useAppState = () => {
     try {
       const { error } = await supabase.from('media').insert(toDbMedia(newRec))
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] insert_media failed', err)
       enqueue({ type: 'insert_media', payload: newRec })
     }
     return newRec
@@ -556,12 +589,30 @@ export const useAppState = () => {
       if (row?.thumbnailPath) await removeFromStorage(row.thumbnailPath)
       const { error } = await supabase.from('media').delete().eq('id', id)
       if (error) throw error
-    } catch {
+    } catch (err) {
+      console.error('[sync] delete_media failed', err)
       enqueue({ type: 'delete_media', id })
     }
   }, [enqueue])
 
   const clearSaveError = useCallback(() => setSaveError(null), [])
+
+  const retryNow = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+    drainQueueRef.current?.()
+  }, [])
+
+  const clearQueue = useCallback(() => {
+    saveQueue([])
+    setQueueState([])
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+  }, [])
 
   const state = {
     members,
@@ -589,6 +640,8 @@ export const useAppState = () => {
     updateTrainingSession,
     deleteTrainingSession,
     addMedia,
-    deleteMedia
+    deleteMedia,
+    retryNow,
+    clearQueue
   }
 }

@@ -36,7 +36,9 @@ export default function App() {
     updateMatch,
     deleteMatch,
     addMedia,
-    deleteMedia
+    deleteMedia,
+    retryNow,
+    clearQueue
   } = useAppState()
 
   const [tab, setTab] = useState('dashboard')
@@ -96,8 +98,17 @@ export default function App() {
       <div className="safe-top" />
 
       {showSyncBanner && (
-        <div
-          className={`px-5 py-2 text-xs flex items-center justify-center gap-2 ${
+        <button
+          type="button"
+          onClick={state.online && state.pendingCount > 0 ? retryNow : undefined}
+          onContextMenu={(e) => {
+            if (state.pendingCount === 0) return
+            e.preventDefault()
+            if (window.confirm(`要捨棄 ${state.pendingCount} 筆待同步紀錄嗎?(只清前端 queue,已同步的雲端資料不受影響)`)) {
+              clearQueue()
+            }
+          }}
+          className={`w-full px-5 py-2 text-xs flex items-center justify-center gap-2 ${
             !state.online ? 'bg-warm text-ink/80' : 'bg-amber/20 text-coralDark'
           }`}
         >
@@ -112,10 +123,10 @@ export default function App() {
           ) : (
             <>
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>同步中 · 還有 {state.pendingCount} 筆</span>
+              <span>同步中 · 還有 {state.pendingCount} 筆 · 點此重試</span>
             </>
           )}
-        </div>
+        </button>
       )}
 
       <header className="sticky top-0 z-20 bg-cream/80 backdrop-blur-ios border-b border-warm/40">
