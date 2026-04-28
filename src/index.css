@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv01';
+    overscroll-behavior-y: contain;
+  }
+  input,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    margin-left: auto;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-ios border border-white/50 shadow-ios;
+  }
+  .glass-strong {
+    @apply bg-white/85 backdrop-blur-ios border border-white/60 shadow-ios;
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .ios-field {
+    @apply w-full bg-white/80 border border-warm rounded-ios px-4 py-3 text-lg text-ink placeholder:text-mute/60 focus:outline-none focus:border-coral focus:ring-2 focus:ring-coral/20 transition;
+  }
+  .ios-btn {
+    @apply rounded-ios px-5 py-3 font-semibold text-base transition active:scale-[0.97];
+  }
+  .ios-btn-primary {
+    @apply ios-btn bg-coral text-white shadow-ios hover:bg-coralDark;
+  }
+  .ios-btn-ghost {
+    @apply ios-btn bg-white/70 text-ink border border-warm hover:bg-white;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
