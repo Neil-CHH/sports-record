@@ -6,11 +6,9 @@ export default function GrowthCard({ record, member, onEdit, onDelete }) {
   const [showPhoto, setShowPhoto] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const accent = member.color === 'sky' ? 'bg-sky' : 'bg-growth'
-
   return (
     <div className="relative pl-10">
-      <div className={`absolute left-2 top-6 w-4 h-4 rounded-full ${accent} ring-4 ring-cream shadow-sm`} />
+      <div className="absolute left-2 top-6 w-4 h-4 rounded-full bg-growth ring-4 ring-cream shadow-sm" />
 
       <div className="glass rounded-ios p-5 animate-fadeIn">
         <div className="flex items-start justify-between gap-3 mb-3">
