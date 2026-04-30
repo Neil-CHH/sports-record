@@ -4,6 +4,9 @@ const KEYS = {
   trainingSessions: 'sports-record:cache:trainingSessions',
   trainingItems: 'sports-record:cache:trainingItems',
   media: 'sports-record:cache:media',
+  growthRecords: 'sports-record:cache:growthRecords',
+  visionRecords: 'sports-record:cache:visionRecords',
+  dentalRecords: 'sports-record:cache:dentalRecords',
   queue: 'sports-record:cache:queue'
 }
 
@@ -36,5 +39,11 @@ export const loadCachedTrainingItems = () => safeRead(KEYS.trainingItems, [])
 export const saveCachedTrainingItems = (arr) => safeWrite(KEYS.trainingItems, arr)
 export const loadCachedMedia = () => safeRead(KEYS.media, [])
 export const saveCachedMedia = (arr) => safeWrite(KEYS.media, arr)
+export const loadCachedGrowthRecords = () => safeRead(KEYS.growthRecords, [])
+export const saveCachedGrowthRecords = (arr) => safeWrite(KEYS.growthRecords, arr)
+export const loadCachedVisionRecords = () => safeRead(KEYS.visionRecords, [])
+export const saveCachedVisionRecords = (arr) => safeWrite(KEYS.visionRecords, arr)
+export const loadCachedDentalRecords = () => safeRead(KEYS.dentalRecords, [])
+export const saveCachedDentalRecords = (arr) => safeWrite(KEYS.dentalRecords, arr)
 export const loadQueue = () => safeRead(KEYS.queue, [])
 export const saveQueue = (arr) => safeWrite(KEYS.queue, arr)

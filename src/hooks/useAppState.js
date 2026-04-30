@@ -13,6 +13,8 @@ import {
   saveCachedTrainingItems,
   loadCachedMedia,
   saveCachedMedia,
+  loadCachedGrowthRecords,
+  saveCachedGrowthRecords,
   loadQueue,
   saveQueue
 } from '../lib/cache.js'
@@ -41,6 +43,28 @@ const memberDbPatch = (patch) => {
   if ('color' in patch) dbPatch.color = patch.color
   return dbPatch
 }
+
+const fromDbGrowthRecord = (r) => ({
+  id: r.id,
+  memberId: r.member_id,
+  date: r.date,
+  heightCm: r.height_cm != null ? Number(r.height_cm) : null,
+  weightKg: r.weight_kg != null ? Number(r.weight_kg) : null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recordedBy: r.recorded_by || null
+})
+
+const toDbGrowthRecord = (r) => ({
+  id: r.id,
+  member_id: r.memberId,
+  date: r.date,
+  height_cm: r.heightCm,
+  weight_kg: r.weightKg ?? null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recorded_by: r.recordedBy || null
+})
 
 const fromDbMatch = (r) => ({
   id: r.id,
@@ -156,6 +180,7 @@ export const useAppState = () => {
     const cached = loadCachedMembers()
     return cached.length ? cached : defaultMembers
   })
+  const [growthRecords, setGrowthRecords] = useState(() => loadCachedGrowthRecords())
   const [matches, setMatches] = useState(() => loadCachedMatches())
   const [trainingSessions, setTrainingSessions] = useState(() => loadCachedTrainingSessions())
   const [trainingItems, setTrainingItems] = useState(() => loadCachedTrainingItems())
@@ -176,6 +201,7 @@ export const useAppState = () => {
   const retryTimerRef = useRef(null)
 
   useEffect(() => { saveCachedMembers(members) }, [members])
+  useEffect(() => { saveCachedGrowthRecords(growthRecords) }, [growthRecords])
   useEffect(() => { saveCachedMatches(matches) }, [matches])
   useEffect(() => { saveCachedTrainingSessions(trainingSessions) }, [trainingSessions])
   useEffect(() => { saveCachedTrainingItems(trainingItems) }, [trainingItems])
@@ -201,6 +227,17 @@ export const useAppState = () => {
   const execOp = useCallback(async (op) => {
     if (op.type === 'update_member') {
       const { error } = await supabase.from('members').update(memberDbPatch(op.patch)).eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'insert_growth') {
+      const { error } = await supabase.from('records').insert(toDbGrowthRecord(op.payload))
+      if (error && error.code !== '23505') throw error
+    } else if (op.type === 'update_growth') {
+      const dbPatch = { ...toDbGrowthRecord(op.payload), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('records').update(dbPatch).eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'delete_growth') {
+      const { error } = await supabase.from('records').delete().eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'insert_match') {
       const { error } = await supabase.from('matches').insert(toDbMatch(op.payload))
@@ -289,14 +326,16 @@ export const useAppState = () => {
 
   const fetchFromServer = useCallback(async () => {
     try {
-      const [mRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
+      const [mRes, gRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
         supabase.from('members').select('*').order('id'),
+        supabase.from('records').select('*').order('date', { ascending: false }),
         supabase.from('matches').select('*').order('date', { ascending: false }),
         supabase.from('training_sessions').select('*').order('date', { ascending: false }),
         supabase.from('training_items').select('*').order('order_index'),
         supabase.from('media').select('*').order('created_at', { ascending: false })
       ])
       if (!mRes.error && mRes.data?.length) setMembers(mRes.data.map(fromDbMember))
+      if (!gRes.error && gRes.data) setGrowthRecords(gRes.data.map(fromDbGrowthRecord))
       if (!matRes.error && matRes.data) setMatches(matRes.data.map(fromDbMatch))
       if (!sRes.error && sRes.data) setTrainingSessions(sRes.data.map(fromDbSession))
       if (!iRes.error && iRes.data) setTrainingItems(iRes.data.map(fromDbItem))
@@ -344,6 +383,20 @@ export const useAppState = () => {
         setMembers((prev) => {
           const i = prev.findIndex((m) => m.id === row.id)
           if (i < 0) return [...prev, row]
+          const next = [...prev]
+          next[i] = row
+          return next
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setGrowthRecords((prev) => prev.filter((r) => r.id !== payload.old.id))
+          return
+        }
+        const row = fromDbGrowthRecord(payload.new)
+        setGrowthRecords((prev) => {
+          const i = prev.findIndex((r) => r.id === row.id)
+          if (i < 0) return [row, ...prev]
           const next = [...prev]
           next[i] = row
           return next
@@ -431,6 +484,48 @@ export const useAppState = () => {
     } catch (err) {
       console.error('[sync] update_member failed', err)
       enqueue({ type: 'update_member', id, patch })
+    }
+  }, [enqueue])
+
+  const addGrowthRecord = useCallback(async (memberId, record) => {
+    const newRec = { id: genId('g'), memberId, ...record }
+    setGrowthRecords((prev) => [newRec, ...prev])
+    try {
+      const { error } = await supabase.from('records').insert(toDbGrowthRecord(newRec))
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] insert_growth failed', err)
+      enqueue({ type: 'insert_growth', payload: newRec })
+    }
+    return newRec
+  }, [enqueue])
+
+  const updateGrowthRecord = useCallback(async (id, patch) => {
+    let merged = null
+    setGrowthRecords((prev) => prev.map((r) => {
+      if (r.id !== id) return r
+      merged = { ...r, ...patch }
+      return merged
+    }))
+    try {
+      const dbPatch = { ...toDbGrowthRecord(merged || { id, ...patch }), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('records').update(dbPatch).eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] update_growth failed', err)
+      enqueue({ type: 'update_growth', id, payload: merged || { id, ...patch } })
+    }
+  }, [enqueue])
+
+  const deleteGrowthRecord = useCallback(async (id) => {
+    setGrowthRecords((prev) => prev.filter((r) => r.id !== id))
+    try {
+      const { error } = await supabase.from('records').delete().eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] delete_growth failed', err)
+      enqueue({ type: 'delete_growth', id })
     }
   }, [enqueue])
 
@@ -622,6 +717,7 @@ export const useAppState = () => {
 
   const state = {
     members,
+    growthRecords,
     matches,
     trainingSessions,
     trainingItems,
@@ -639,6 +735,9 @@ export const useAppState = () => {
     setActiveMember,
     setRecorder,
     updateMember,
+    addGrowthRecord,
+    updateGrowthRecord,
+    deleteGrowthRecord,
     addMatch,
     updateMatch,
     deleteMatch,

@@ -9,6 +9,9 @@ import MatchList from './components/MatchList.jsx'
 import TrainingList from './components/TrainingList.jsx'
 import TrainingSessionForm from './components/TrainingSessionForm.jsx'
 import MatchForm from './components/MatchForm.jsx'
+import GrowthList from './components/growth/GrowthList.jsx'
+import GrowthForm from './components/growth/GrowthForm.jsx'
+import GrowthCompareChart from './components/growth/GrowthCompareChart.jsx'
 import { useAppState } from './hooks/useAppState.js'
 
 const TITLES = {
@@ -65,7 +68,11 @@ export default function App() {
     saveError,
     clearSaveError,
     setActiveMember,
+    setRecorder,
     updateMember,
+    addGrowthRecord,
+    updateGrowthRecord,
+    deleteGrowthRecord,
     addTrainingSession,
     updateTrainingSession,
     deleteTrainingSession,
@@ -82,6 +89,7 @@ export default function App() {
   const [healthSub, setHealthSub] = useState('growth')
   const [sportsSub, setSportsSub] = useState('matches')
   const [showEdit, setShowEdit] = useState(false)
+  const [growthDraft, setGrowthDraft] = useState(null)
   const [trainingDraft, setTrainingDraft] = useState(null)
   const [matchDraft, setMatchDraft] = useState(null)
 
@@ -93,6 +101,14 @@ export default function App() {
   const fabAccent = subTab ? FAB_ACCENT[subTab] : 'amber'
   const showFab = macro !== 'overview'
   const addLabel = subTab ? ADD_LABEL[subTab] : '新增'
+
+  const openNewGrowth = () => setGrowthDraft({ editing: null })
+  const openEditGrowth = (record) => {
+    setMacro('health')
+    setHealthSub('growth')
+    setGrowthDraft({ editing: record })
+  }
+  const closeGrowth = () => setGrowthDraft(null)
 
   const openNewTraining = () => setTrainingDraft({ editing: null })
   const openEditTraining = (session) => {
@@ -115,7 +131,8 @@ export default function App() {
       if (sportsSub === 'matches') openNewMatch()
       else openNewTraining()
     } else if (macro === 'health') {
-      // 健康 sub-tabs 還沒實作,後續階段補
+      if (healthSub === 'growth') openNewGrowth()
+      // 視力/牙齒 還沒實作,後續階段補
     }
   }
 
@@ -190,7 +207,19 @@ export default function App() {
           />
         )}
 
-        {macro === 'health' && healthSub === 'growth' && <PlaceholderHealth name="成長" />}
+        {activeMember && macro === 'health' && healthSub === 'growth' && (
+          <>
+            <GrowthList
+              records={state.growthRecords}
+              member={activeMember}
+              onEdit={openEditGrowth}
+              onDelete={deleteGrowthRecord}
+            />
+            {state.growthRecords.length >= 2 && (
+              <GrowthCompareChart members={state.members} records={state.growthRecords} />
+            )}
+          </>
+        )}
         {macro === 'health' && healthSub === 'vision' && <PlaceholderHealth name="視力" />}
         {macro === 'health' && healthSub === 'dental' && <PlaceholderHealth name="牙齒" />}
 
@@ -231,6 +260,19 @@ export default function App() {
         onClose={() => setShowEdit(false)}
         onSave={updateMember}
       />
+
+      {activeMember && (
+        <GrowthForm
+          open={Boolean(growthDraft)}
+          member={activeMember}
+          recorder={state.recorder}
+          initial={growthDraft?.editing || null}
+          onRecorderChange={setRecorder}
+          onClose={closeGrowth}
+          onSave={addGrowthRecord}
+          onUpdate={updateGrowthRecord}
+        />
+      )}
 
       {activeMember && (
         <TrainingSessionForm
