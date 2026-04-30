@@ -173,11 +173,15 @@ export default function GrowthCompareChart({ members, records }) {
                     tickFormatter={formatAgeAxis}
                   />
                   <YAxis
-                    domain={[`dataMin - ${cfg.yPad}`, `dataMax + ${cfg.yPad}`]}
+                    domain={[
+                      (dataMin) => Math.max(0, Math.floor(dataMin - cfg.yPad)),
+                      (dataMax) => Math.ceil(dataMax + cfg.yPad)
+                    ]}
+                    tickFormatter={(v) => Number(v).toFixed(1)}
                     tick={{ fill: '#6B7B95', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
-                    width={36}
+                    width={44}
                   />
                   <Tooltip
                     content={<TooltipCard members={members} unit={cfg.unit} />}
