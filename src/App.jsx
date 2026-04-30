@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { CloudOff, RefreshCw } from 'lucide-react'
 import MemberSwitcher from './components/MemberSwitcher.jsx'
 import MemberEditModal from './components/MemberEditModal.jsx'
-import BottomTabBar from './components/BottomTabBar.jsx'
+import MacroNav from './shell/MacroNav.jsx'
+import SubTabs from './shell/SubTabs.jsx'
+import SyncBanner from './shell/SyncBanner.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import MatchList from './components/MatchList.jsx'
 import TrainingList from './components/TrainingList.jsx'
@@ -11,16 +12,52 @@ import MatchForm from './components/MatchForm.jsx'
 import { useAppState } from './hooks/useAppState.js'
 
 const TITLES = {
-  dashboard: { title: '雙寶運動紀錄', subtitle: '今天練得怎麼樣?' },
-  matches: { title: '比賽紀錄', subtitle: '每一場都是經驗' },
-  training: { title: '練習紀錄', subtitle: '把每天的努力留下來' }
+  overview: { title: '雙寶紀錄', subtitle: '小孩們的成長與運動' },
+  health: {
+    growth: { title: '身高紀錄', subtitle: '記錄每一個長高的瞬間' },
+    vision: { title: '視力紀錄', subtitle: '每次檢查都留下紀錄' },
+    dental: { title: '牙齒紀錄', subtitle: '看牙醫的每次紀錄' }
+  },
+  sports: {
+    matches: { title: '比賽紀錄', subtitle: '每一場都是經驗' },
+    training: { title: '練習紀錄', subtitle: '把每天的努力留下來' }
+  }
 }
 
-const ADD_LABELS = {
-  dashboard: '新增紀錄',
+const HEALTH_TABS = [
+  { key: 'growth', label: '成長' },
+  { key: 'vision', label: '視力' },
+  { key: 'dental', label: '牙齒' }
+]
+const SPORTS_TABS = [
+  { key: 'matches', label: '比賽' },
+  { key: 'training', label: '練習' }
+]
+
+const FAB_ACCENT = {
+  growth: 'growth',
+  vision: 'vision',
+  dental: 'dental',
+  matches: 'coral',
+  training: 'amber'
+}
+
+const ADD_LABEL = {
+  growth: '新增身高',
+  vision: '新增視力',
+  dental: '新增牙齒',
   matches: '新增比賽',
   training: '新增練習'
 }
+
+const PlaceholderHealth = ({ name }) => (
+  <div className="px-5">
+    <div className="glass rounded-ios p-8 text-center text-mute text-sm leading-relaxed">
+      <p className="font-semibold text-ink mb-2">{name} 紀錄</p>
+      <p>這個 domain 的功能會從原本的「身高紀錄」app 搬過來,在後續階段補上。</p>
+    </div>
+  </div>
+)
 
 export default function App() {
   const {
@@ -41,27 +78,45 @@ export default function App() {
     clearQueue
   } = useAppState()
 
-  const [tab, setTab] = useState('dashboard')
+  const [macro, setMacro] = useState('overview')
+  const [healthSub, setHealthSub] = useState('growth')
+  const [sportsSub, setSportsSub] = useState('matches')
   const [showEdit, setShowEdit] = useState(false)
-  const [trainingDraft, setTrainingDraft] = useState(null) // { editing?: session }
+  const [trainingDraft, setTrainingDraft] = useState(null)
   const [matchDraft, setMatchDraft] = useState(null)
 
   const activeMember =
     state.members.find((m) => m.id === state.activeMemberId) || state.members[0]
-  const showSyncBanner = !state.online || state.pendingCount > 0
+  const subTab = macro === 'health' ? healthSub : macro === 'sports' ? sportsSub : null
+  const titleObj = subTab ? TITLES[macro][subTab] : TITLES.overview
+
+  const fabAccent = subTab ? FAB_ACCENT[subTab] : 'amber'
+  const showFab = macro !== 'overview'
+  const addLabel = subTab ? ADD_LABEL[subTab] : '新增'
 
   const openNewTraining = () => setTrainingDraft({ editing: null })
-  const openEditTraining = (session) => setTrainingDraft({ editing: session })
+  const openEditTraining = (session) => {
+    setMacro('sports')
+    setSportsSub('training')
+    setTrainingDraft({ editing: session })
+  }
   const closeTraining = () => setTrainingDraft(null)
 
   const openNewMatch = () => setMatchDraft({ editing: null })
-  const openEditMatch = (match) => setMatchDraft({ editing: match })
+  const openEditMatch = (match) => {
+    setMacro('sports')
+    setSportsSub('matches')
+    setMatchDraft({ editing: match })
+  }
   const closeMatch = () => setMatchDraft(null)
 
   const handleAdd = () => {
-    if (tab === 'matches') openNewMatch()
-    else if (tab === 'training') openNewTraining()
-    else setTab('training')
+    if (macro === 'sports') {
+      if (sportsSub === 'matches') openNewMatch()
+      else openNewTraining()
+    } else if (macro === 'health') {
+      // 健康 sub-tabs 還沒實作,後續階段補
+    }
   }
 
   const saveTraining = async (memberId, session, items, mediaList = []) => {
@@ -97,43 +152,13 @@ export default function App() {
     <div className="min-h-full pb-44 bg-gradient-to-b from-cream via-cream to-warm/40">
       <div className="safe-top" />
 
-      {showSyncBanner && (
-        <button
-          type="button"
-          onClick={state.online && state.pendingCount > 0 ? retryNow : undefined}
-          onContextMenu={(e) => {
-            if (state.pendingCount === 0) return
-            e.preventDefault()
-            if (window.confirm(`要捨棄 ${state.pendingCount} 筆待同步紀錄嗎?(只清前端 queue,已同步的雲端資料不受影響)`)) {
-              clearQueue()
-            }
-          }}
-          className={`w-full px-5 py-2 text-xs flex items-center justify-center gap-2 ${
-            !state.online ? 'bg-warm text-ink/80' : 'bg-amber/20 text-coralDark'
-          }`}
-        >
-          {!state.online ? (
-            <>
-              <CloudOff className="w-3.5 h-3.5" />
-              <span>
-                離線模式
-                {state.pendingCount > 0 ? ` · ${state.pendingCount} 筆待同步` : ''}
-              </span>
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>同步中 · 還有 {state.pendingCount} 筆 · 點此重試</span>
-            </>
-          )}
-        </button>
-      )}
+      <SyncBanner state={state} retryNow={retryNow} clearQueue={clearQueue} />
 
       <header className="sticky top-0 z-20 bg-cream/80 backdrop-blur-ios border-b border-warm/40">
         <div className="max-w-md mx-auto">
           <div className="px-5 pt-4 pb-1">
-            <h1 className="text-2xl font-bold tracking-tight">{TITLES[tab].title}</h1>
-            <p className="text-xs text-mute mt-0.5">{TITLES[tab].subtitle}</p>
+            <h1 className="text-2xl font-bold tracking-tight">{titleObj.title}</h1>
+            <p className="text-xs text-mute mt-0.5">{titleObj.subtitle}</p>
           </div>
           <MemberSwitcher
             members={state.members}
@@ -141,21 +166,35 @@ export default function App() {
             onSelect={setActiveMember}
             onEdit={() => setShowEdit(true)}
           />
+          {macro === 'health' && (
+            <SubTabs items={HEALTH_TABS} active={healthSub} onChange={setHealthSub} />
+          )}
+          {macro === 'sports' && (
+            <SubTabs items={SPORTS_TABS} active={sportsSub} onChange={setSportsSub} />
+          )}
         </div>
       </header>
 
       <main className="max-w-md mx-auto pt-4">
-        {activeMember && tab === 'dashboard' && (
+        {activeMember && macro === 'overview' && (
           <Dashboard
             member={activeMember}
             matches={state.matches}
             sessions={state.trainingSessions}
             items={state.trainingItems}
             media={state.media}
-            onJumpMatches={() => setTab('matches')}
+            onJumpMatches={() => {
+              setMacro('sports')
+              setSportsSub('matches')
+            }}
           />
         )}
-        {activeMember && tab === 'matches' && (
+
+        {macro === 'health' && healthSub === 'growth' && <PlaceholderHealth name="成長" />}
+        {macro === 'health' && healthSub === 'vision' && <PlaceholderHealth name="視力" />}
+        {macro === 'health' && healthSub === 'dental' && <PlaceholderHealth name="牙齒" />}
+
+        {activeMember && macro === 'sports' && sportsSub === 'matches' && (
           <MatchList
             matches={state.matches}
             media={state.media}
@@ -164,7 +203,7 @@ export default function App() {
             onDelete={(m) => deleteMatch(m.id)}
           />
         )}
-        {activeMember && tab === 'training' && (
+        {activeMember && macro === 'sports' && sportsSub === 'training' && (
           <TrainingList
             sessions={state.trainingSessions}
             items={state.trainingItems}
@@ -176,11 +215,13 @@ export default function App() {
         )}
       </main>
 
-      <BottomTabBar
-        tab={tab}
-        onTabChange={setTab}
+      <MacroNav
+        macro={macro}
+        onMacroChange={setMacro}
         onAdd={handleAdd}
-        addLabel={ADD_LABELS[tab]}
+        fabAccent={fabAccent}
+        showFab={showFab}
+        addLabel={addLabel}
       />
 
       <MemberEditModal

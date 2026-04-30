@@ -16,9 +16,15 @@ export default {
         // 文字
         ink: '#1A2740',
         mute: '#6B7B95',
-        // accent — 螢光煤黃,FAB 與重點按鈕
+        // accent — 螢光煤黃,運動-練習
         amber: '#FFB800',
-        amberDark: '#E89E00'
+        amberDark: '#E89E00',
+        // 健康-成長 = 珊瑚紅(沿用 Height tracker)
+        growth: '#FF9B85',
+        growthDark: '#E8826E',
+        // 健康-牙齒 = 蘋果綠
+        dental: '#7DBE6D',
+        dentalDark: '#5BA452'
       },
       fontFamily: {
         sans: [
