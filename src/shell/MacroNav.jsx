@@ -1,10 +1,10 @@
 import { Home, HeartPulse, Dumbbell, Plus } from 'lucide-react'
 
-const MacroBtn = ({ active, icon: Icon, label, onClick }) => (
+const MacroBtn = ({ active, icon: Icon, label, onClick, activeClass = 'text-ink' }) => (
   <button
     onClick={onClick}
     className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition ${
-      active ? 'text-ink' : 'text-mute'
+      active ? activeClass : 'text-mute'
     }`}
   >
     <Icon className="w-6 h-6" strokeWidth={active ? 2.2 : 1.8} />
@@ -53,12 +53,14 @@ export default function MacroNav({
               active={macro === 'health'}
               icon={HeartPulse}
               label="健康"
+              activeClass="text-amberDark"
               onClick={() => onMacroChange('health')}
             />
             <MacroBtn
               active={macro === 'sports'}
               icon={Dumbbell}
               label="運動"
+              activeClass="text-coral"
               onClick={() => onMacroChange('sports')}
             />
           </div>
