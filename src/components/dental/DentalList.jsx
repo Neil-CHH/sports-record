@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Smile } from 'lucide-react'
 import DentalCard from './DentalCard.jsx'
-import DentalStatsCard from './DentalStatsCard.jsx'
 import EmptyState from '../EmptyState.jsx'
 
 export default function DentalList({ records, member, onEdit, onDelete }) {
@@ -19,22 +18,19 @@ export default function DentalList({ records, member, onEdit, onDelete }) {
   }
 
   return (
-    <>
-      <DentalStatsCard records={records} member={member} />
-      <div className="relative px-5 pb-10">
-        <div className="absolute left-[calc(1.25rem+0.25rem)] top-8 bottom-8 w-[2px] bg-gradient-to-b from-warm via-warm to-transparent" />
-        <div className="space-y-5 pt-2">
-          {sorted.map((r) => (
-            <DentalCard
-              key={r.id}
-              record={r}
-              member={member}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
+    <div className="relative px-5 pb-10">
+      <div className="absolute left-[calc(1.25rem+0.25rem)] top-8 bottom-8 w-[2px] bg-gradient-to-b from-warm via-warm to-transparent" />
+      <div className="space-y-5 pt-2">
+        {sorted.map((r) => (
+          <DentalCard
+            key={r.id}
+            record={r}
+            member={member}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
       </div>
-    </>
+    </div>
   )
 }

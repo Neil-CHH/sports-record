@@ -5,22 +5,24 @@ import MacroNav from './shell/MacroNav.jsx'
 import SubTabs from './shell/SubTabs.jsx'
 import SyncBanner from './shell/SyncBanner.jsx'
 import Dashboard from './components/Dashboard.jsx'
+import HealthDashboard from './components/HealthDashboard.jsx'
 import MatchList from './components/MatchList.jsx'
 import TrainingList from './components/TrainingList.jsx'
 import TrainingSessionForm from './components/TrainingSessionForm.jsx'
 import MatchForm from './components/MatchForm.jsx'
 import GrowthList from './components/growth/GrowthList.jsx'
 import GrowthForm from './components/growth/GrowthForm.jsx'
-import GrowthCompareChart from './components/growth/GrowthCompareChart.jsx'
 import VisionList from './components/vision/VisionList.jsx'
 import VisionForm from './components/vision/VisionForm.jsx'
-import VisionTrendChart from './components/vision/VisionTrendChart.jsx'
 import DentalList from './components/dental/DentalList.jsx'
 import DentalForm from './components/dental/DentalForm.jsx'
 import { useAppState } from './hooks/useAppState.js'
 
 const TITLES = {
-  overview: { title: '雙寶紀錄', subtitle: '小孩們的成長與運動' },
+  overview: {
+    sports: { title: '雙寶紀錄', subtitle: '小孩們的運動近況' },
+    health: { title: '雙寶紀錄', subtitle: '小孩們的健康近況' }
+  },
   health: {
     growth: { title: '身高紀錄', subtitle: '記錄每一個長高的瞬間' },
     vision: { title: '視力紀錄', subtitle: '每次檢查都留下紀錄' },
@@ -32,6 +34,10 @@ const TITLES = {
   }
 }
 
+const OVERVIEW_TABS = [
+  { key: 'sports', label: '運動' },
+  { key: 'health', label: '健康' }
+]
 const HEALTH_TABS = [
   { key: 'growth', label: '成長' },
   { key: 'vision', label: '視力' },
@@ -88,6 +94,7 @@ export default function App() {
   } = useAppState()
 
   const [macro, setMacro] = useState('overview')
+  const [overviewSub, setOverviewSub] = useState('sports')
   const [healthSub, setHealthSub] = useState('growth')
   const [sportsSub, setSportsSub] = useState('matches')
   const [showEdit, setShowEdit] = useState(false)
@@ -99,12 +106,20 @@ export default function App() {
 
   const activeMember =
     state.members.find((m) => m.id === state.activeMemberId) || state.members[0]
-  const subTab = macro === 'health' ? healthSub : macro === 'sports' ? sportsSub : null
-  const titleObj = subTab ? TITLES[macro][subTab] : TITLES.overview
+  const subTab =
+    macro === 'overview' ? overviewSub :
+    macro === 'health' ? healthSub :
+    macro === 'sports' ? sportsSub : null
+  const titleObj =
+    macro === 'overview'
+      ? TITLES.overview[overviewSub]
+      : TITLES[macro][subTab]
 
-  const fabAccent = subTab ? FAB_ACCENT[subTab] : 'amber'
+  const fabAccent =
+    macro === 'overview' ? 'amber' :
+    subTab ? FAB_ACCENT[subTab] : 'amber'
   const showFab = macro !== 'overview'
-  const addLabel = subTab ? ADD_LABEL[subTab] : '新增'
+  const addLabel = subTab && macro !== 'overview' ? ADD_LABEL[subTab] : '新增'
 
   const openNewGrowth = () => setGrowthDraft({ editing: null })
   const openEditGrowth = (record) => {
@@ -204,6 +219,9 @@ export default function App() {
             onSelect={setActiveMember}
             onEdit={() => setShowEdit(true)}
           />
+          {macro === 'overview' && (
+            <SubTabs items={OVERVIEW_TABS} active={overviewSub} onChange={setOverviewSub} />
+          )}
           {macro === 'health' && (
             <SubTabs items={HEALTH_TABS} active={healthSub} onChange={setHealthSub} />
           )}
@@ -214,7 +232,7 @@ export default function App() {
       </header>
 
       <main className="max-w-md mx-auto pt-4">
-        {activeMember && macro === 'overview' && (
+        {activeMember && macro === 'overview' && overviewSub === 'sports' && (
           <Dashboard
             member={activeMember}
             matches={state.matches}
@@ -228,31 +246,31 @@ export default function App() {
           />
         )}
 
+        {activeMember && macro === 'overview' && overviewSub === 'health' && (
+          <HealthDashboard
+            member={activeMember}
+            members={state.members}
+            growthRecords={state.growthRecords}
+            visionRecords={state.visionRecords}
+            dentalRecords={state.dentalRecords}
+          />
+        )}
+
         {activeMember && macro === 'health' && healthSub === 'growth' && (
-          <>
-            <GrowthList
-              records={state.growthRecords}
-              member={activeMember}
-              onEdit={openEditGrowth}
-              onDelete={deleteGrowthRecord}
-            />
-            {state.growthRecords.length >= 2 && (
-              <GrowthCompareChart members={state.members} records={state.growthRecords} />
-            )}
-          </>
+          <GrowthList
+            records={state.growthRecords}
+            member={activeMember}
+            onEdit={openEditGrowth}
+            onDelete={deleteGrowthRecord}
+          />
         )}
         {activeMember && macro === 'health' && healthSub === 'vision' && (
-          <>
-            <VisionList
-              records={state.visionRecords}
-              member={activeMember}
-              onEdit={openEditVision}
-              onDelete={deleteVisionRecord}
-            />
-            {state.visionRecords.filter((r) => r.memberId === activeMember.id).length >= 2 && (
-              <VisionTrendChart records={state.visionRecords} member={activeMember} />
-            )}
-          </>
+          <VisionList
+            records={state.visionRecords}
+            member={activeMember}
+            onEdit={openEditVision}
+            onDelete={deleteVisionRecord}
+          />
         )}
         {activeMember && macro === 'health' && healthSub === 'dental' && (
           <DentalList

@@ -3,7 +3,9 @@ const ACCENTS = {
   vision: 'bg-sky text-white',
   dental: 'bg-dental text-white',
   matches: 'bg-coral text-white',
-  training: 'bg-amber text-coral'
+  training: 'bg-amber text-coral',
+  sports: 'bg-amber text-coral',
+  health: 'bg-coral text-white'
 }
 
 export default function SubTabs({ items, active, onChange }) {
