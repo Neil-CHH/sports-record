@@ -17,6 +17,8 @@ import {
   saveCachedGrowthRecords,
   loadCachedVisionRecords,
   saveCachedVisionRecords,
+  loadCachedDentalRecords,
+  saveCachedDentalRecords,
   loadQueue,
   saveQueue
 } from '../lib/cache.js'
@@ -112,6 +114,32 @@ const toDbVisionRecord = (r) => ({
   right_axis: numOrNull(r.rightAxis),
   left_axial_length: numOrNull(r.leftAxialLength),
   right_axial_length: numOrNull(r.rightAxialLength),
+  next_visit: r.nextVisit || null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recorded_by: r.recordedBy || null
+})
+
+const fromDbDentalRecord = (r) => ({
+  id: r.id,
+  memberId: r.member_id,
+  date: r.date,
+  types: Array.isArray(r.types) ? r.types : [],
+  cavityCount: r.cavity_count ?? null,
+  toothArea: r.tooth_area || '',
+  nextVisit: r.next_visit || null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recordedBy: r.recorded_by || null
+})
+
+const toDbDentalRecord = (r) => ({
+  id: r.id,
+  member_id: r.memberId,
+  date: r.date,
+  types: Array.isArray(r.types) ? r.types : [],
+  cavity_count: r.cavityCount === '' || r.cavityCount == null ? null : Number(r.cavityCount),
+  tooth_area: r.toothArea || null,
   next_visit: r.nextVisit || null,
   note: r.note || '',
   photo: r.photo || null,
@@ -234,6 +262,7 @@ export const useAppState = () => {
   })
   const [growthRecords, setGrowthRecords] = useState(() => loadCachedGrowthRecords())
   const [visionRecords, setVisionRecords] = useState(() => loadCachedVisionRecords())
+  const [dentalRecords, setDentalRecords] = useState(() => loadCachedDentalRecords())
   const [matches, setMatches] = useState(() => loadCachedMatches())
   const [trainingSessions, setTrainingSessions] = useState(() => loadCachedTrainingSessions())
   const [trainingItems, setTrainingItems] = useState(() => loadCachedTrainingItems())
@@ -256,6 +285,7 @@ export const useAppState = () => {
   useEffect(() => { saveCachedMembers(members) }, [members])
   useEffect(() => { saveCachedGrowthRecords(growthRecords) }, [growthRecords])
   useEffect(() => { saveCachedVisionRecords(visionRecords) }, [visionRecords])
+  useEffect(() => { saveCachedDentalRecords(dentalRecords) }, [dentalRecords])
   useEffect(() => { saveCachedMatches(matches) }, [matches])
   useEffect(() => { saveCachedTrainingSessions(trainingSessions) }, [trainingSessions])
   useEffect(() => { saveCachedTrainingItems(trainingItems) }, [trainingItems])
@@ -303,6 +333,17 @@ export const useAppState = () => {
       if (error) throw error
     } else if (op.type === 'delete_vision') {
       const { error } = await supabase.from('vision_records').delete().eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'insert_dental') {
+      const { error } = await supabase.from('dental_records').insert(toDbDentalRecord(op.payload))
+      if (error && error.code !== '23505') throw error
+    } else if (op.type === 'update_dental') {
+      const dbPatch = { ...toDbDentalRecord(op.payload), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('dental_records').update(dbPatch).eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'delete_dental') {
+      const { error } = await supabase.from('dental_records').delete().eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'insert_match') {
       const { error } = await supabase.from('matches').insert(toDbMatch(op.payload))
@@ -391,10 +432,11 @@ export const useAppState = () => {
 
   const fetchFromServer = useCallback(async () => {
     try {
-      const [mRes, gRes, vRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
+      const [mRes, gRes, vRes, dRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
         supabase.from('members').select('*').order('id'),
         supabase.from('records').select('*').order('date', { ascending: false }),
         supabase.from('vision_records').select('*').order('date', { ascending: false }),
+        supabase.from('dental_records').select('*').order('date', { ascending: false }),
         supabase.from('matches').select('*').order('date', { ascending: false }),
         supabase.from('training_sessions').select('*').order('date', { ascending: false }),
         supabase.from('training_items').select('*').order('order_index'),
@@ -403,6 +445,7 @@ export const useAppState = () => {
       if (!mRes.error && mRes.data?.length) setMembers(mRes.data.map(fromDbMember))
       if (!gRes.error && gRes.data) setGrowthRecords(gRes.data.map(fromDbGrowthRecord))
       if (!vRes.error && vRes.data) setVisionRecords(vRes.data.map(fromDbVisionRecord))
+      if (!dRes.error && dRes.data) setDentalRecords(dRes.data.map(fromDbDentalRecord))
       if (!matRes.error && matRes.data) setMatches(matRes.data.map(fromDbMatch))
       if (!sRes.error && sRes.data) setTrainingSessions(sRes.data.map(fromDbSession))
       if (!iRes.error && iRes.data) setTrainingItems(iRes.data.map(fromDbItem))
@@ -476,6 +519,20 @@ export const useAppState = () => {
         }
         const row = fromDbVisionRecord(payload.new)
         setVisionRecords((prev) => {
+          const i = prev.findIndex((r) => r.id === row.id)
+          if (i < 0) return [row, ...prev]
+          const next = [...prev]
+          next[i] = row
+          return next
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dental_records' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setDentalRecords((prev) => prev.filter((r) => r.id !== payload.old.id))
+          return
+        }
+        const row = fromDbDentalRecord(payload.new)
+        setDentalRecords((prev) => {
           const i = prev.findIndex((r) => r.id === row.id)
           if (i < 0) return [row, ...prev]
           const next = [...prev]
@@ -649,6 +706,48 @@ export const useAppState = () => {
     } catch (err) {
       console.error('[sync] delete_vision failed', err)
       enqueue({ type: 'delete_vision', id })
+    }
+  }, [enqueue])
+
+  const addDentalRecord = useCallback(async (memberId, record) => {
+    const newRec = { id: genId('d'), memberId, ...record }
+    setDentalRecords((prev) => [newRec, ...prev])
+    try {
+      const { error } = await supabase.from('dental_records').insert(toDbDentalRecord(newRec))
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] insert_dental failed', err)
+      enqueue({ type: 'insert_dental', payload: newRec })
+    }
+    return newRec
+  }, [enqueue])
+
+  const updateDentalRecord = useCallback(async (id, patch) => {
+    let merged = null
+    setDentalRecords((prev) => prev.map((r) => {
+      if (r.id !== id) return r
+      merged = { ...r, ...patch }
+      return merged
+    }))
+    try {
+      const dbPatch = { ...toDbDentalRecord(merged || { id, ...patch }), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('dental_records').update(dbPatch).eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] update_dental failed', err)
+      enqueue({ type: 'update_dental', id, payload: merged || { id, ...patch } })
+    }
+  }, [enqueue])
+
+  const deleteDentalRecord = useCallback(async (id) => {
+    setDentalRecords((prev) => prev.filter((r) => r.id !== id))
+    try {
+      const { error } = await supabase.from('dental_records').delete().eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] delete_dental failed', err)
+      enqueue({ type: 'delete_dental', id })
     }
   }, [enqueue])
 
@@ -842,6 +941,7 @@ export const useAppState = () => {
     members,
     growthRecords,
     visionRecords,
+    dentalRecords,
     matches,
     trainingSessions,
     trainingItems,
@@ -865,6 +965,9 @@ export const useAppState = () => {
     addVisionRecord,
     updateVisionRecord,
     deleteVisionRecord,
+    addDentalRecord,
+    updateDentalRecord,
+    deleteDentalRecord,
     addMatch,
     updateMatch,
     deleteMatch,

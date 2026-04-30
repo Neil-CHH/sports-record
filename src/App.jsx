@@ -15,6 +15,8 @@ import GrowthCompareChart from './components/growth/GrowthCompareChart.jsx'
 import VisionList from './components/vision/VisionList.jsx'
 import VisionForm from './components/vision/VisionForm.jsx'
 import VisionTrendChart from './components/vision/VisionTrendChart.jsx'
+import DentalList from './components/dental/DentalList.jsx'
+import DentalForm from './components/dental/DentalForm.jsx'
 import { useAppState } from './hooks/useAppState.js'
 
 const TITLES = {
@@ -56,15 +58,6 @@ const ADD_LABEL = {
   training: '新增練習'
 }
 
-const PlaceholderHealth = ({ name }) => (
-  <div className="px-5">
-    <div className="glass rounded-ios p-8 text-center text-mute text-sm leading-relaxed">
-      <p className="font-semibold text-ink mb-2">{name} 紀錄</p>
-      <p>這個 domain 的功能會從原本的「身高紀錄」app 搬過來,在後續階段補上。</p>
-    </div>
-  </div>
-)
-
 export default function App() {
   const {
     state,
@@ -79,6 +72,9 @@ export default function App() {
     addVisionRecord,
     updateVisionRecord,
     deleteVisionRecord,
+    addDentalRecord,
+    updateDentalRecord,
+    deleteDentalRecord,
     addTrainingSession,
     updateTrainingSession,
     deleteTrainingSession,
@@ -97,6 +93,7 @@ export default function App() {
   const [showEdit, setShowEdit] = useState(false)
   const [growthDraft, setGrowthDraft] = useState(null)
   const [visionDraft, setVisionDraft] = useState(null)
+  const [dentalDraft, setDentalDraft] = useState(null)
   const [trainingDraft, setTrainingDraft] = useState(null)
   const [matchDraft, setMatchDraft] = useState(null)
 
@@ -125,6 +122,14 @@ export default function App() {
   }
   const closeVision = () => setVisionDraft(null)
 
+  const openNewDental = () => setDentalDraft({ editing: null })
+  const openEditDental = (record) => {
+    setMacro('health')
+    setHealthSub('dental')
+    setDentalDraft({ editing: record })
+  }
+  const closeDental = () => setDentalDraft(null)
+
   const openNewTraining = () => setTrainingDraft({ editing: null })
   const openEditTraining = (session) => {
     setMacro('sports')
@@ -148,7 +153,7 @@ export default function App() {
     } else if (macro === 'health') {
       if (healthSub === 'growth') openNewGrowth()
       else if (healthSub === 'vision') openNewVision()
-      // 牙齒 還沒實作,後續階段補
+      else if (healthSub === 'dental') openNewDental()
     }
   }
 
@@ -249,7 +254,14 @@ export default function App() {
             )}
           </>
         )}
-        {macro === 'health' && healthSub === 'dental' && <PlaceholderHealth name="牙齒" />}
+        {activeMember && macro === 'health' && healthSub === 'dental' && (
+          <DentalList
+            records={state.dentalRecords}
+            member={activeMember}
+            onEdit={openEditDental}
+            onDelete={deleteDentalRecord}
+          />
+        )}
 
         {activeMember && macro === 'sports' && sportsSub === 'matches' && (
           <MatchList
@@ -312,6 +324,19 @@ export default function App() {
           onClose={closeVision}
           onSave={addVisionRecord}
           onUpdate={updateVisionRecord}
+        />
+      )}
+
+      {activeMember && (
+        <DentalForm
+          open={Boolean(dentalDraft)}
+          member={activeMember}
+          recorder={state.recorder}
+          initial={dentalDraft?.editing || null}
+          onRecorderChange={setRecorder}
+          onClose={closeDental}
+          onSave={addDentalRecord}
+          onUpdate={updateDentalRecord}
         />
       )}
 
