@@ -15,6 +15,8 @@ import {
   saveCachedMedia,
   loadCachedGrowthRecords,
   saveCachedGrowthRecords,
+  loadCachedVisionRecords,
+  saveCachedVisionRecords,
   loadQueue,
   saveQueue
 } from '../lib/cache.js'
@@ -61,6 +63,56 @@ const toDbGrowthRecord = (r) => ({
   date: r.date,
   height_cm: r.heightCm,
   weight_kg: r.weightKg ?? null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recorded_by: r.recordedBy || null
+})
+
+const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
+
+const fromDbVisionRecord = (r) => ({
+  id: r.id,
+  memberId: r.member_id,
+  date: r.date,
+  checkType: r.check_type || null,
+  wearsGlasses: !!r.wears_glasses,
+  leftAcuity: r.left_acuity || '',
+  rightAcuity: r.right_acuity || '',
+  leftAcuityCorrected: r.left_acuity_corrected || '',
+  rightAcuityCorrected: r.right_acuity_corrected || '',
+  leftSph: r.left_sph ?? null,
+  rightSph: r.right_sph ?? null,
+  leftCyl: r.left_cyl ?? null,
+  rightCyl: r.right_cyl ?? null,
+  leftAxis: r.left_axis ?? null,
+  rightAxis: r.right_axis ?? null,
+  leftAxialLength: r.left_axial_length != null ? Number(r.left_axial_length) : null,
+  rightAxialLength: r.right_axial_length != null ? Number(r.right_axial_length) : null,
+  nextVisit: r.next_visit || null,
+  note: r.note || '',
+  photo: r.photo || null,
+  recordedBy: r.recorded_by || null
+})
+
+const toDbVisionRecord = (r) => ({
+  id: r.id,
+  member_id: r.memberId,
+  date: r.date,
+  check_type: r.checkType || null,
+  wears_glasses: !!r.wearsGlasses,
+  left_acuity: r.leftAcuity || null,
+  right_acuity: r.rightAcuity || null,
+  left_acuity_corrected: r.leftAcuityCorrected || null,
+  right_acuity_corrected: r.rightAcuityCorrected || null,
+  left_sph: numOrNull(r.leftSph),
+  right_sph: numOrNull(r.rightSph),
+  left_cyl: numOrNull(r.leftCyl),
+  right_cyl: numOrNull(r.rightCyl),
+  left_axis: numOrNull(r.leftAxis),
+  right_axis: numOrNull(r.rightAxis),
+  left_axial_length: numOrNull(r.leftAxialLength),
+  right_axial_length: numOrNull(r.rightAxialLength),
+  next_visit: r.nextVisit || null,
   note: r.note || '',
   photo: r.photo || null,
   recorded_by: r.recordedBy || null
@@ -181,6 +233,7 @@ export const useAppState = () => {
     return cached.length ? cached : defaultMembers
   })
   const [growthRecords, setGrowthRecords] = useState(() => loadCachedGrowthRecords())
+  const [visionRecords, setVisionRecords] = useState(() => loadCachedVisionRecords())
   const [matches, setMatches] = useState(() => loadCachedMatches())
   const [trainingSessions, setTrainingSessions] = useState(() => loadCachedTrainingSessions())
   const [trainingItems, setTrainingItems] = useState(() => loadCachedTrainingItems())
@@ -202,6 +255,7 @@ export const useAppState = () => {
 
   useEffect(() => { saveCachedMembers(members) }, [members])
   useEffect(() => { saveCachedGrowthRecords(growthRecords) }, [growthRecords])
+  useEffect(() => { saveCachedVisionRecords(visionRecords) }, [visionRecords])
   useEffect(() => { saveCachedMatches(matches) }, [matches])
   useEffect(() => { saveCachedTrainingSessions(trainingSessions) }, [trainingSessions])
   useEffect(() => { saveCachedTrainingItems(trainingItems) }, [trainingItems])
@@ -238,6 +292,17 @@ export const useAppState = () => {
       if (error) throw error
     } else if (op.type === 'delete_growth') {
       const { error } = await supabase.from('records').delete().eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'insert_vision') {
+      const { error } = await supabase.from('vision_records').insert(toDbVisionRecord(op.payload))
+      if (error && error.code !== '23505') throw error
+    } else if (op.type === 'update_vision') {
+      const dbPatch = { ...toDbVisionRecord(op.payload), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('vision_records').update(dbPatch).eq('id', op.id)
+      if (error) throw error
+    } else if (op.type === 'delete_vision') {
+      const { error } = await supabase.from('vision_records').delete().eq('id', op.id)
       if (error) throw error
     } else if (op.type === 'insert_match') {
       const { error } = await supabase.from('matches').insert(toDbMatch(op.payload))
@@ -326,9 +391,10 @@ export const useAppState = () => {
 
   const fetchFromServer = useCallback(async () => {
     try {
-      const [mRes, gRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
+      const [mRes, gRes, vRes, matRes, sRes, iRes, mediaRes] = await Promise.all([
         supabase.from('members').select('*').order('id'),
         supabase.from('records').select('*').order('date', { ascending: false }),
+        supabase.from('vision_records').select('*').order('date', { ascending: false }),
         supabase.from('matches').select('*').order('date', { ascending: false }),
         supabase.from('training_sessions').select('*').order('date', { ascending: false }),
         supabase.from('training_items').select('*').order('order_index'),
@@ -336,6 +402,7 @@ export const useAppState = () => {
       ])
       if (!mRes.error && mRes.data?.length) setMembers(mRes.data.map(fromDbMember))
       if (!gRes.error && gRes.data) setGrowthRecords(gRes.data.map(fromDbGrowthRecord))
+      if (!vRes.error && vRes.data) setVisionRecords(vRes.data.map(fromDbVisionRecord))
       if (!matRes.error && matRes.data) setMatches(matRes.data.map(fromDbMatch))
       if (!sRes.error && sRes.data) setTrainingSessions(sRes.data.map(fromDbSession))
       if (!iRes.error && iRes.data) setTrainingItems(iRes.data.map(fromDbItem))
@@ -395,6 +462,20 @@ export const useAppState = () => {
         }
         const row = fromDbGrowthRecord(payload.new)
         setGrowthRecords((prev) => {
+          const i = prev.findIndex((r) => r.id === row.id)
+          if (i < 0) return [row, ...prev]
+          const next = [...prev]
+          next[i] = row
+          return next
+        })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vision_records' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setVisionRecords((prev) => prev.filter((r) => r.id !== payload.old.id))
+          return
+        }
+        const row = fromDbVisionRecord(payload.new)
+        setVisionRecords((prev) => {
           const i = prev.findIndex((r) => r.id === row.id)
           if (i < 0) return [row, ...prev]
           const next = [...prev]
@@ -526,6 +607,48 @@ export const useAppState = () => {
     } catch (err) {
       console.error('[sync] delete_growth failed', err)
       enqueue({ type: 'delete_growth', id })
+    }
+  }, [enqueue])
+
+  const addVisionRecord = useCallback(async (memberId, record) => {
+    const newRec = { id: genId('v'), memberId, ...record }
+    setVisionRecords((prev) => [newRec, ...prev])
+    try {
+      const { error } = await supabase.from('vision_records').insert(toDbVisionRecord(newRec))
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] insert_vision failed', err)
+      enqueue({ type: 'insert_vision', payload: newRec })
+    }
+    return newRec
+  }, [enqueue])
+
+  const updateVisionRecord = useCallback(async (id, patch) => {
+    let merged = null
+    setVisionRecords((prev) => prev.map((r) => {
+      if (r.id !== id) return r
+      merged = { ...r, ...patch }
+      return merged
+    }))
+    try {
+      const dbPatch = { ...toDbVisionRecord(merged || { id, ...patch }), updated_at: new Date().toISOString() }
+      delete dbPatch.id
+      const { error } = await supabase.from('vision_records').update(dbPatch).eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] update_vision failed', err)
+      enqueue({ type: 'update_vision', id, payload: merged || { id, ...patch } })
+    }
+  }, [enqueue])
+
+  const deleteVisionRecord = useCallback(async (id) => {
+    setVisionRecords((prev) => prev.filter((r) => r.id !== id))
+    try {
+      const { error } = await supabase.from('vision_records').delete().eq('id', id)
+      if (error) throw error
+    } catch (err) {
+      console.error('[sync] delete_vision failed', err)
+      enqueue({ type: 'delete_vision', id })
     }
   }, [enqueue])
 
@@ -718,6 +841,7 @@ export const useAppState = () => {
   const state = {
     members,
     growthRecords,
+    visionRecords,
     matches,
     trainingSessions,
     trainingItems,
@@ -738,6 +862,9 @@ export const useAppState = () => {
     addGrowthRecord,
     updateGrowthRecord,
     deleteGrowthRecord,
+    addVisionRecord,
+    updateVisionRecord,
+    deleteVisionRecord,
     addMatch,
     updateMatch,
     deleteMatch,

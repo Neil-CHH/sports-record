@@ -12,6 +12,9 @@ import MatchForm from './components/MatchForm.jsx'
 import GrowthList from './components/growth/GrowthList.jsx'
 import GrowthForm from './components/growth/GrowthForm.jsx'
 import GrowthCompareChart from './components/growth/GrowthCompareChart.jsx'
+import VisionList from './components/vision/VisionList.jsx'
+import VisionForm from './components/vision/VisionForm.jsx'
+import VisionTrendChart from './components/vision/VisionTrendChart.jsx'
 import { useAppState } from './hooks/useAppState.js'
 
 const TITLES = {
@@ -73,6 +76,9 @@ export default function App() {
     addGrowthRecord,
     updateGrowthRecord,
     deleteGrowthRecord,
+    addVisionRecord,
+    updateVisionRecord,
+    deleteVisionRecord,
     addTrainingSession,
     updateTrainingSession,
     deleteTrainingSession,
@@ -90,6 +96,7 @@ export default function App() {
   const [sportsSub, setSportsSub] = useState('matches')
   const [showEdit, setShowEdit] = useState(false)
   const [growthDraft, setGrowthDraft] = useState(null)
+  const [visionDraft, setVisionDraft] = useState(null)
   const [trainingDraft, setTrainingDraft] = useState(null)
   const [matchDraft, setMatchDraft] = useState(null)
 
@@ -109,6 +116,14 @@ export default function App() {
     setGrowthDraft({ editing: record })
   }
   const closeGrowth = () => setGrowthDraft(null)
+
+  const openNewVision = () => setVisionDraft({ editing: null })
+  const openEditVision = (record) => {
+    setMacro('health')
+    setHealthSub('vision')
+    setVisionDraft({ editing: record })
+  }
+  const closeVision = () => setVisionDraft(null)
 
   const openNewTraining = () => setTrainingDraft({ editing: null })
   const openEditTraining = (session) => {
@@ -132,7 +147,8 @@ export default function App() {
       else openNewTraining()
     } else if (macro === 'health') {
       if (healthSub === 'growth') openNewGrowth()
-      // 視力/牙齒 還沒實作,後續階段補
+      else if (healthSub === 'vision') openNewVision()
+      // 牙齒 還沒實作,後續階段補
     }
   }
 
@@ -220,7 +236,19 @@ export default function App() {
             )}
           </>
         )}
-        {macro === 'health' && healthSub === 'vision' && <PlaceholderHealth name="視力" />}
+        {activeMember && macro === 'health' && healthSub === 'vision' && (
+          <>
+            <VisionList
+              records={state.visionRecords}
+              member={activeMember}
+              onEdit={openEditVision}
+              onDelete={deleteVisionRecord}
+            />
+            {state.visionRecords.filter((r) => r.memberId === activeMember.id).length >= 2 && (
+              <VisionTrendChart records={state.visionRecords} member={activeMember} />
+            )}
+          </>
+        )}
         {macro === 'health' && healthSub === 'dental' && <PlaceholderHealth name="牙齒" />}
 
         {activeMember && macro === 'sports' && sportsSub === 'matches' && (
@@ -271,6 +299,19 @@ export default function App() {
           onClose={closeGrowth}
           onSave={addGrowthRecord}
           onUpdate={updateGrowthRecord}
+        />
+      )}
+
+      {activeMember && (
+        <VisionForm
+          open={Boolean(visionDraft)}
+          member={activeMember}
+          recorder={state.recorder}
+          initial={visionDraft?.editing || null}
+          onRecorderChange={setRecorder}
+          onClose={closeVision}
+          onSave={addVisionRecord}
+          onUpdate={updateVisionRecord}
         />
       )}
 
