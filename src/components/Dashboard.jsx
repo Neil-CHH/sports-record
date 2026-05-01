@@ -18,8 +18,9 @@ const StatCard = ({ icon: Icon, label, value, hint }) => (
 
 const monthRangeISO = () => {
   const now = new Date()
-  const first = new Date(now.getFullYear(), now.getMonth(), 1)
-  return first.toISOString().slice(0, 10)
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}-01`
 }
 
 const ResultPill = ({ result }) => {

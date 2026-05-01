@@ -4,6 +4,8 @@ import {
   uploadPhoto,
   uploadVideoBlob,
   probeVideoFile,
+  trimVideoFile,
+  isTrimSupported,
   getPublicUrl,
   MAX_VIDEO_MS
 } from '../utils/mediaUpload.js'
@@ -48,6 +50,7 @@ export default function MediaPicker({ member, attached, onAdd, onRemove }) {
   const photoRef = useRef(null)
   const videoRef = useRef(null)
   const [busy, setBusy] = useState(null)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
   const [trimSource, setTrimSource] = useState(null) // { file, durationMs }
 
@@ -79,13 +82,24 @@ export default function MediaPicker({ member, attached, onAdd, onRemove }) {
         setBusy(null)
         return
       }
-      const result = await uploadVideoBlob(file, member.id, meta)
+      // ≤30 秒也用 MediaRecorder 重錄壓縮成 720p / 1.5Mbps,避免 iPhone 4K 原檔吃掉雲端空間
+      const durationSec = meta.durationMs / 1000
+      setProgress(0)
+      const blob = isTrimSupported()
+        ? await trimVideoFile(file, 0, durationSec, (p) => setProgress(p))
+        : file
+      setBusy('upload')
+      const result = await uploadVideoBlob(blob, member.id, {
+        ...meta,
+        durationMs: meta.durationMs
+      })
       onAdd(result)
     } catch (err) {
       setError(err.message || '影片上傳失敗')
     } finally {
       if (videoRef.current) videoRef.current.value = ''
-      if (busy === 'video') setBusy(null)
+      setBusy(null)
+      setProgress(0)
     }
   }
 
@@ -122,14 +136,25 @@ export default function MediaPicker({ member, attached, onAdd, onRemove }) {
           className="flex items-center gap-1.5 px-3 py-2 rounded-ios bg-white/70 border border-warm text-sm disabled:opacity-50"
         >
           <Video className="w-4 h-4" />
-          {busy === 'video' ? '上傳中…' : '加影片(<30秒)'}
+          {busy === 'video'
+            ? `壓縮中 ${Math.round(progress * 100)}%`
+            : busy === 'upload'
+              ? '上傳中…'
+              : '加影片(<30秒)'}
         </button>
       </div>
+      {busy === 'video' && (
+        <div className="mt-2 h-1.5 rounded-full bg-warm overflow-hidden">
+          <div
+            className="h-full bg-coral transition-all"
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+      )}
       <input
         ref={photoRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={pickPhoto}
         className="hidden"
       />
@@ -137,7 +162,6 @@ export default function MediaPicker({ member, attached, onAdd, onRemove }) {
         ref={videoRef}
         type="file"
         accept="video/*"
-        capture="environment"
         onChange={pickVideo}
         className="hidden"
       />

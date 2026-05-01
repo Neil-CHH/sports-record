@@ -195,7 +195,7 @@ export const trimVideoFile = (file, startSec, endSec, onProgress) =>
         const mime = candidates.find((t) => MediaRecorder.isTypeSupported(t)) || 'video/webm'
         recorder = new MediaRecorder(stream, {
           mimeType: mime,
-          videoBitsPerSecond: 2_500_000
+          videoBitsPerSecond: 1_500_000
         })
         const chunks = []
         recorder.ondataavailable = (e) => {
