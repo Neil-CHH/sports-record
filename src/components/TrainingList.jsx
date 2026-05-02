@@ -45,14 +45,37 @@ const formatMetrics = (item) => {
   }
 }
 
-export default function TrainingList({ sessions, items, media, member, onEdit, onDelete }) {
-  const list = sessions.filter((s) => s.memberId === member.id)
+const sessionHaystack = (s, sItems) =>
+  [s.location, s.note, ...sItems.map((i) => i.label).filter(Boolean)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+export default function TrainingList({ sessions, items, media, member, query = '', onEdit, onDelete }) {
+  const trimmed = query.trim().toLowerCase()
+  const all = sessions.filter((s) => s.memberId === member.id)
+  const list = trimmed
+    ? all.filter((s) => {
+        const sItems = items.filter((i) => i.sessionId === s.id)
+        return sessionHaystack(s, sItems).includes(trimmed)
+      })
+    : all
+
+  if (!all.length) {
+    return (
+      <div className="px-5">
+        <div className="glass rounded-ios p-8 text-center text-mute text-sm">
+          還沒有練習紀錄,點下方 + 新增第一筆
+        </div>
+      </div>
+    )
+  }
 
   if (!list.length) {
     return (
       <div className="px-5">
         <div className="glass rounded-ios p-8 text-center text-mute text-sm">
-          還沒有練習紀錄,點下方 + 新增第一筆
+          找不到符合「{query}」的練習
         </div>
       </div>
     )

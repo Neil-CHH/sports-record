@@ -49,14 +49,34 @@ const MatchTitle = ({ name }) => {
   )
 }
 
-export default function MatchList({ matches, media, member, onEdit, onDelete }) {
-  const list = matches.filter((m) => m.memberId === member.id)
+const matchHaystack = (m) =>
+  [m.eventName, m.opponentSchool, m.opponentName, m.round, m.note]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+export default function MatchList({ matches, media, member, query = '', onEdit, onDelete }) {
+  const trimmed = query.trim().toLowerCase()
+  const all = matches.filter((m) => m.memberId === member.id)
+  const list = trimmed
+    ? all.filter((m) => matchHaystack(m).includes(trimmed))
+    : all
+
+  if (!all.length) {
+    return (
+      <div className="px-5">
+        <div className="glass rounded-ios p-8 text-center text-mute text-sm">
+          還沒有比賽紀錄,點下方 + 新增第一場
+        </div>
+      </div>
+    )
+  }
 
   if (!list.length) {
     return (
       <div className="px-5">
         <div className="glass rounded-ios p-8 text-center text-mute text-sm">
-          還沒有比賽紀錄,點下方 + 新增第一場
+          找不到符合「{query}」的比賽
         </div>
       </div>
     )

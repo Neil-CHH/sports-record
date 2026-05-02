@@ -97,6 +97,7 @@ export default function App() {
   const [overviewSub, setOverviewSub] = useState('sports')
   const [healthSub, setHealthSub] = useState('growth')
   const [sportsSub, setSportsSub] = useState('matches')
+  const [sportsQuery, setSportsQuery] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [growthDraft, setGrowthDraft] = useState(null)
   const [visionDraft, setVisionDraft] = useState(null)
@@ -226,7 +227,19 @@ export default function App() {
             <SubTabs items={HEALTH_TABS} active={healthSub} onChange={setHealthSub} />
           )}
           {macro === 'sports' && (
-            <SubTabs items={SPORTS_TABS} active={sportsSub} onChange={setSportsSub} />
+            <SubTabs
+              items={SPORTS_TABS}
+              active={sportsSub}
+              onChange={setSportsSub}
+              searchable
+              searchPlaceholder={
+                sportsSub === 'matches'
+                  ? '搜尋對手 / 學校 / 賽事'
+                  : '搜尋地點 / 項目 / 備註'
+              }
+              query={sportsQuery}
+              onQueryChange={setSportsQuery}
+            />
           )}
         </div>
       </header>
@@ -286,6 +299,7 @@ export default function App() {
             matches={state.matches}
             media={state.media}
             member={activeMember}
+            query={sportsQuery}
             onEdit={openEditMatch}
             onDelete={(m) => deleteMatch(m.id)}
           />
@@ -296,6 +310,7 @@ export default function App() {
             items={state.trainingItems}
             media={state.media}
             member={activeMember}
+            query={sportsQuery}
             onEdit={openEditTraining}
             onDelete={(s) => deleteTrainingSession(s.id)}
           />
