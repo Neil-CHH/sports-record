@@ -16,11 +16,12 @@ const StatCard = ({ icon: Icon, label, value, hint }) => (
   </div>
 )
 
-const monthRangeISO = () => {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}-01`
+const past12mISO = () => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 1)
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
 }
 
 const ResultPill = ({ result }) => {
@@ -87,11 +88,11 @@ export default function Dashboard({ member, matches, sessions, items, media, onJ
   const memberSessions = sessions.filter((s) => s.memberId === member.id)
   const memberMedia = media.filter((m) => m.memberId === member.id)
 
-  const fromISO = monthRangeISO()
-  const monthMatches = memberMatches.filter((m) => m.date >= fromISO)
-  const monthSessions = memberSessions.filter((s) => s.date >= fromISO)
-  const wins = monthMatches.filter((m) => m.result === 'W').length
-  const losses = monthMatches.filter((m) => m.result === 'L').length
+  const fromISO = past12mISO()
+  const recentMatches = memberMatches.filter((m) => m.date >= fromISO)
+  const recentSessions = memberSessions.filter((s) => s.date >= fromISO)
+  const wins = recentMatches.filter((m) => m.result === 'W').length
+  const losses = recentMatches.filter((m) => m.result === 'L').length
   const totalDecided = wins + losses
   const winRate = totalDecided ? Math.round((wins / totalDecided) * 100) : null
 
@@ -100,16 +101,16 @@ export default function Dashboard({ member, matches, sessions, items, media, onJ
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={Dumbbell}
-          label="本月練習"
-          value={monthSessions.length}
-          hint={monthSessions.length ? '次' : '還沒開練'}
+          label="近 12 個月練習"
+          value={recentSessions.length}
+          hint={recentSessions.length ? '次' : '還沒開練'}
         />
         <StatCard
           icon={Trophy}
-          label="本月比賽"
-          value={monthMatches.length}
+          label="近 12 個月比賽"
+          value={recentMatches.length}
           hint={
-            monthMatches.length
+            recentMatches.length
               ? `${wins}勝 ${losses}敗${winRate != null ? ` · ${winRate}%` : ''}`
               : '還沒比賽'
           }
