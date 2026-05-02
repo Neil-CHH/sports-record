@@ -11,7 +11,7 @@ const StatCard = ({ icon: Icon, label, value, hint }) => (
     <div className="flex-1 min-w-0">
       <div className="text-xs text-mute">{label}</div>
       <div className="text-2xl font-bold text-ink leading-tight tabular-nums">{value}</div>
-      {hint && <div className="text-[11px] text-mute mt-0.5 truncate">{hint}</div>}
+      {hint && <div className="text-[11px] text-mute mt-0.5 leading-tight">{hint}</div>}
     </div>
   </div>
 )
@@ -111,7 +111,7 @@ export default function Dashboard({ member, matches, sessions, items, media, onJ
           value={recentMatches.length}
           hint={
             recentMatches.length
-              ? `${wins}勝 ${losses}敗${winRate != null ? ` · ${winRate}%` : ''}`
+              ? `${wins}勝${losses}敗${winRate != null ? ` · ${winRate}%` : ''}`
               : '還沒比賽'
           }
         />

@@ -20,7 +20,9 @@ export const formatAge = (birthdayISO, dateISO = new Date().toISOString().slice(
 export const formatDate = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}/${m}/${day}`
 }
 
 export const todayISO = () => {

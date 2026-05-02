@@ -6,6 +6,7 @@ import {
   probeVideoFile,
   trimVideoFile,
   isTrimSupported,
+  canRecordMp4,
   getPublicUrl,
   MAX_VIDEO_MS
 } from '../utils/mediaUpload.js'
@@ -82,16 +83,19 @@ export default function MediaPicker({ member, attached, onAdd, onRemove }) {
         setBusy(null)
         return
       }
-      // ≤30 秒也用 MediaRecorder 重錄壓縮成 720p / 1.5Mbps,避免 iPhone 4K 原檔吃掉雲端空間
+      // 只有當 MediaRecorder 能輸出 mp4 時才重壓 — 否則(iOS Safari)會壓出
+      // webm,iPhone 完全打不開。原檔已是 H.264 mp4,直接上傳相容性最好。
       const durationSec = meta.durationMs / 1000
       setProgress(0)
-      const blob = isTrimSupported()
+      const shouldRecompress = isTrimSupported() && canRecordMp4()
+      const blob = shouldRecompress
         ? await trimVideoFile(file, 0, durationSec, (p) => setProgress(p))
         : file
       setBusy('upload')
       const result = await uploadVideoBlob(blob, member.id, {
         ...meta,
-        durationMs: meta.durationMs
+        durationMs: meta.durationMs,
+        preferExt: shouldRecompress ? undefined : 'mp4'
       })
       onAdd(result)
     } catch (err) {

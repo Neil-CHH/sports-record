@@ -132,6 +132,17 @@ export const isTrimSupported = () => {
   return Boolean(proto.captureStream || proto.mozCaptureStream)
 }
 
+// True if MediaRecorder can output an iOS-playable mp4. Most desktop browsers
+// say no; without this, iOS Safari falls back to webm and the resulting clip
+// won't play on any iPhone.
+export const canRecordMp4 = () => {
+  if (typeof MediaRecorder === 'undefined') return false
+  return (
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E,mp4a.40.2') ||
+    MediaRecorder.isTypeSupported('video/mp4')
+  )
+}
+
 export const trimVideoFile = (file, startSec, endSec, onProgress) =>
   new Promise((resolve, reject) => {
     if (!isTrimSupported()) {
