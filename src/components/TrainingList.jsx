@@ -1,7 +1,23 @@
+import { useState } from 'react'
 import { Dumbbell, MapPin, Clock } from 'lucide-react'
 import { formatDate } from '../utils/age.js'
 import MediaStrip from './MediaStrip.jsx'
 import CardActions from './CardActions.jsx'
+
+const LocationLabel = ({ value }) => {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded((v) => !v)}
+      className="flex items-center gap-1 min-w-0 text-xs text-mute text-left"
+      title={value}
+    >
+      <MapPin className="w-3 h-3 shrink-0" />
+      <span className={expanded ? 'break-all' : 'truncate'}>{value}</span>
+    </button>
+  )
+}
 
 const KIND_LABEL = {
   rope_double: '二迴旋',
@@ -55,12 +71,7 @@ export default function TrainingList({ sessions, items, media, member, onEdit, o
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Dumbbell className="w-4 h-4 text-coralDark shrink-0" />
                 <span className="text-sm font-semibold tabular-nums shrink-0">{formatDate(s.date)}</span>
-                {s.location && (
-                  <span className="flex items-center gap-1 min-w-0 text-xs text-mute">
-                    <MapPin className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{s.location}</span>
-                  </span>
-                )}
+                {s.location && <LocationLabel value={s.location} />}
                 {s.durationMin != null && (
                   <span className="flex items-center gap-1 shrink-0 text-xs text-mute">
                     <Clock className="w-3 h-3" />
