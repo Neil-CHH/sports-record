@@ -77,3 +77,21 @@
   width: 0;
   height: 0;
 }
+
+@media screen and (orientation: landscape) {
+  body {
+    overflow: hidden;
+  }
+  #root {
+    transform: rotate(-90deg);
+    transform-origin: left top;
+    width: 100vh;
+    height: 100vw;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: absolute;
+    top: 100%;
+    left: 0;
+  }
+}
