@@ -17,6 +17,7 @@ const startOfWeekMon = (d) => {
 
 const WEEKS = 12
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAYS_ZH = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
 
 const intensityClass = (mins) => {
   if (mins == null) return 'bg-warm/40'
@@ -37,6 +38,13 @@ const computeStreak = (dayMap) => {
     else if (i > 0) break
   }
   return n
+}
+
+const formatDateWithDay = (key) => {
+  const [y, m, d] = key.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const dayName = DAYS_ZH[date.getDay()]
+  return `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')} (${dayName})`
 }
 
 export default function StreakHeatmap({ sessions, member }) {
@@ -73,120 +81,118 @@ export default function StreakHeatmap({ sessions, member }) {
 
   const handleClick = (cell) => {
     if (!cell.mins) return
+    if (selected?.key === cell.key) {
+      setSelected(null)
+      return
+    }
     setSelected({ ...cell, daySessions: memberSessions.filter((s) => s.date === cell.key) })
   }
 
   return (
-    <>
-      <div className="glass rounded-ios p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold flex items-center gap-1.5">
-            <Flame className="w-4 h-4 text-coralDark" />
-            打卡記錄
-          </span>
-          <span className="text-[11px] text-mute">近 {WEEKS} 週</span>
-        </div>
+    <div className="glass rounded-ios p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold flex items-center gap-1.5">
+          <Flame className="w-4 h-4 text-coralDark" />
+          打卡記錄
+        </span>
+        <span className="text-[11px] text-mute">近 {WEEKS} 週</span>
+      </div>
 
-        <div className="flex gap-5 mb-3">
-          <div>
-            <div className="text-[11px] text-mute">連續</div>
-            <div className="text-2xl font-bold tabular-nums">
-              {streak}<span className="text-xs text-mute font-normal"> 天</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] text-mute">天數</div>
-            <div className="text-2xl font-bold tabular-nums">
-              {total}<span className="text-xs text-mute font-normal"> 天</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] text-mute">總時數</div>
-            <div className="text-2xl font-bold tabular-nums">
-              {(totalMins / 60).toFixed(1)}<span className="text-xs text-mute font-normal"> 小時</span>
-            </div>
+      <div className="flex gap-5 mb-3">
+        <div>
+          <div className="text-[11px] text-mute">連續</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {streak}<span className="text-xs text-mute font-normal"> 天</span>
           </div>
         </div>
-
-        <div className="flex gap-1.5">
-          <div className="flex flex-col gap-1 shrink-0 self-stretch">
-            {DAY_LABELS.map((d) => (
-              <div key={d} className="flex-1 flex items-center">
-                <span className="text-[9px] text-mute leading-none">{d}</span>
-              </div>
-            ))}
-          </div>
-          <div
-            className="grid gap-1 flex-1"
-            style={{
-              gridTemplateRows: 'repeat(7, 1fr)',
-              gridAutoFlow: 'column',
-              gridAutoColumns: '1fr'
-            }}
-          >
-            {cells.map((c) => (
-              <div
-                key={c.key}
-                className={`aspect-square rounded-sm ${intensityClass(c.mins)}${c.mins ? ' cursor-pointer active:scale-90 transition-transform' : ''}`}
-                onClick={() => handleClick(c)}
-                title={`${c.key}${c.mins ? ` · ${c.mins} 分鐘` : ''}`}
-              />
-            ))}
+        <div>
+          <div className="text-[11px] text-mute">天數</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {total}<span className="text-xs text-mute font-normal"> 天</span>
           </div>
         </div>
-
-        <div className="flex items-center justify-end gap-1.5 mt-3 text-[10px] text-mute">
-          <span>少</span>
-          <div className="w-3 h-3 rounded-sm bg-warm" />
-          <div className="w-3 h-3 rounded-sm bg-coral/30" />
-          <div className="w-3 h-3 rounded-sm bg-coral/60" />
-          <div className="w-3 h-3 rounded-sm bg-coral" />
-          <span>多</span>
+        <div>
+          <div className="text-[11px] text-mute">總時數</div>
+          <div className="text-2xl font-bold tabular-nums">
+            {(totalMins / 60).toFixed(1)}<span className="text-xs text-mute font-normal"> 小時</span>
+          </div>
         </div>
       </div>
 
-      {selected && (
+      <div className="flex gap-1.5">
+        <div className="flex flex-col gap-1 shrink-0 self-stretch">
+          {DAY_LABELS.map((d) => (
+            <div key={d} className="flex-1 flex items-center">
+              <span className="text-[9px] text-mute leading-none">{d}</span>
+            </div>
+          ))}
+        </div>
         <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-end"
-          onClick={() => setSelected(null)}
+          className="grid gap-1 flex-1"
+          style={{
+            gridTemplateRows: 'repeat(7, 1fr)',
+            gridAutoFlow: 'column',
+            gridAutoColumns: '1fr'
+          }}
         >
-          <div
-            className="w-full max-w-md mx-auto bg-cream rounded-t-2xl p-5 safe-bottom"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-xs text-mute">{selected.key}</div>
-                <div className="font-semibold">共 {selected.mins} 分鐘</div>
-              </div>
-              <button
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-warm/60"
-                onClick={() => setSelected(null)}
-              >
-                <X className="w-4 h-4 text-mute" />
-              </button>
-            </div>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {selected.daySessions.map((s) => (
-                <div key={s.id} className="bg-warm/40 rounded-xl p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{s.location || '練習'}</span>
-                    <span className="text-xs text-mute">{s.durationMin ?? 30} 分鐘</span>
-                  </div>
-                  {s.themeTags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {s.themeTags.map((t) => (
-                        <span key={t} className="text-[10px] bg-warm px-1.5 py-0.5 rounded-full">{t}</span>
-                      ))}
-                    </div>
-                  )}
-                  {s.note && <p className="text-[11px] text-mute mt-1.5">{s.note}</p>}
+          {cells.map((c) => (
+            <div
+              key={c.key}
+              onClick={() => handleClick(c)}
+              className={[
+                'aspect-square rounded-sm transition-transform',
+                intensityClass(c.mins),
+                c.mins ? 'cursor-pointer active:scale-90' : '',
+                selected?.key === c.key
+                  ? 'ring-2 ring-coralDark ring-offset-1 ring-offset-white/80'
+                  : ''
+              ].join(' ')}
+              title={`${c.key}${c.mins ? ` · ${c.mins} 分鐘` : ''}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-1.5 mt-3 text-[10px] text-mute">
+        <span>少</span>
+        <div className="w-3 h-3 rounded-sm bg-warm" />
+        <div className="w-3 h-3 rounded-sm bg-coral/30" />
+        <div className="w-3 h-3 rounded-sm bg-coral/60" />
+        <div className="w-3 h-3 rounded-sm bg-coral" />
+        <span>多</span>
+      </div>
+
+      {selected && (
+        <div className="border-t border-warm/50 mt-3 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">{formatDateWithDay(selected.key)}</span>
+            <button
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-warm/60"
+              onClick={() => setSelected(null)}
+            >
+              <X className="w-3.5 h-3.5 text-mute" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {selected.daySessions.map((s) => (
+              <div key={s.id} className="bg-warm/40 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{s.location || '練習'}</span>
+                  <span className="text-xs text-mute">{s.durationMin ?? 30} 分鐘</span>
                 </div>
-              ))}
-            </div>
+                {s.themeTags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {s.themeTags.map((t) => (
+                      <span key={t} className="text-[10px] bg-warm px-1.5 py-0.5 rounded-full">{t}</span>
+                    ))}
+                  </div>
+                )}
+                {s.note && <p className="text-[11px] text-mute mt-1.5">{s.note}</p>}
+              </div>
+            ))}
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
